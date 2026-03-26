@@ -1,0 +1,373 @@
+# ESG and Financial Performance Correlation Analysis
+# For ACCFIN5254 Coursework - Question 2: Corporate Sustainability
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
+import warnings
+warnings.filterwarnings('ignore')
+
+print("="*60)
+print("ESG AND FINANCIAL PERFORMANCE CORRELATION ANALYSIS")
+print("="*60)
+
+# Set font for English
+plt.rcParams['font.sans-serif'] = ['Arial']
+plt.rcParams['axes.unicode_minus'] = False
+
+# ============================================
+# 1. Data Loading
+# ============================================
+
+file_name = 'company_esg_financial_dataset.csv'
+
+try:
+    df = pd.read_csv(file_name)
+    print(f"\n✓ Data loaded successfully!")
+    print(f"Dataset shape: {df.shape}")
+    print(f"Columns: {df.columns.tolist()}")
+except FileNotFoundError:
+    print(f"❌ File {file_name} not found!")
+    print("Please download the dataset and place it in the current directory.")
+    exit()
+
+# ============================================
+# 2. Initial Data Exploration
+# ============================================
+
+print("\n" + "="*60)
+print("2. INITIAL DATA EXPLORATION")
+print("="*60)
+
+print(f"\nData time range: {df['Year'].min()} - {df['Year'].max()}")
+print(f"Number of companies: {df['CompanyID'].nunique()}")
+print(f"Industries: {df['Industry'].nunique()}")
+print(f"Regions: {df['Region'].nunique()}")
+
+print("\nFirst 5 rows:")
+print(df.head())
+
+print("\nData info:")
+print(df.info())
+
+print("\nDescriptive statistics:")
+print(df.describe())
+
+# ============================================
+# 3. Data Cleaning
+# ============================================
+
+print("\n" + "="*60)
+print("3. DATA CLEANING")
+print("="*60)
+
+# Check missing values
+print("\nMissing values:")
+print(df.isnull().sum())
+
+# Handle missing values
+df_clean = df.copy()
+df_clean['GrowthRate'] = df_clean.groupby('CompanyID')['GrowthRate'].fillna(method='bfill')
+
+# Drop remaining missing values
+df_clean = df_clean.dropna()
+print(f"\nCleaned dataset shape: {df_clean.shape}")
+
+# ============================================
+# 4. Exploratory Data Analysis & Visualization
+# ============================================
+
+print("\n" + "="*60)
+print("4. EXPLORATORY DATA ANALYSIS")
+print("="*60)
+
+# Set visualization style
+sns.set_style("whitegrid")
+plt.figure(figsize=(18, 12))
+
+# 4.1 ESG Score Distribution
+plt.subplot(2, 3, 1)
+sns.histplot(df_clean['ESG_Overall'], bins=30, kde=True)
+plt.title('ESG Overall Score Distribution')
+plt.xlabel('ESG Score')
+plt.ylabel('Frequency')
+
+# 4.2 Profit Margin Distribution
+plt.subplot(2, 3, 2)
+sns.histplot(df_clean['ProfitMargin'], bins=30, kde=True)
+plt.title('Profit Margin Distribution')
+plt.xlabel('Profit Margin (%)')
+plt.ylabel('Frequency')
+
+# 4.3 ESG Score vs Profit Margin Scatter Plot
+plt.subplot(2, 3, 3)
+sns.scatterplot(data=df_clean, x='ESG_Overall', y='ProfitMargin', alpha=0.3, s=10)
+sns.regplot(data=df_clean, x='ESG_Overall', y='ProfitMargin', scatter=False, color='red')
+plt.title('ESG Score vs Profit Margin')
+plt.xlabel('ESG Score')
+plt.ylabel('Profit Margin (%)')
+
+# 4.4 Average ESG Score by Industry
+plt.subplot(2, 3, 4)
+industry_esg = df_clean.groupby('Industry')['ESG_Overall'].mean().sort_values()
+colors = plt.cm.viridis(np.linspace(0, 1, len(industry_esg)))
+plt.barh(industry_esg.index, industry_esg.values, color=colors)
+plt.title('Average ESG Score by Industry')
+plt.xlabel('Average ESG Score')
+
+# 4.5 Average Profit Margin by Industry
+plt.subplot(2, 3, 5)
+industry_profit = df_clean.groupby('Industry')['ProfitMargin'].mean().sort_values()
+plt.barh(industry_profit.index, industry_profit.values, color='skyblue')
+plt.title('Average Profit Margin by Industry')
+plt.xlabel('Average Profit Margin (%)')
+
+# 4.6 ESG and Profit Margin Trends Over Time
+plt.subplot(2, 3, 6)
+yearly_esg = df_clean.groupby('Year')['ESG_Overall'].mean()
+yearly_profit = df_clean.groupby('Year')['ProfitMargin'].mean()
+plt.plot(yearly_esg.index, yearly_esg.values, 'b-o', label='ESG Score')
+plt.plot(yearly_profit.index, yearly_profit.values, 'r-s', label='Profit Margin')
+plt.title('ESG and Profit Margin Trends (2015-2025)')
+plt.xlabel('Year')
+plt.ylabel('Value')
+plt.legend()
+
+plt.tight_layout()
+plt.savefig('esg_exploratory_analysis.png', dpi=300, bbox_inches='tight')
+plt.close()
+print("✓ Exploratory analysis chart saved: esg_exploratory_analysis.png")
+
+# ============================================
+# 5. Correlation Analysis
+# ============================================
+
+print("\n" + "="*60)
+print("5. CORRELATION ANALYSIS")
+print("="*60)
+
+# Calculate correlation matrix
+correlation_cols = ['ESG_Overall', 'ESG_Environmental', 'ESG_Social', 
+                    'ESG_Governance', 'ProfitMargin', 'Revenue', 
+                    'MarketCap', 'GrowthRate']
+corr_matrix = df_clean[correlation_cols].corr()
+
+# Plot heatmap
+plt.figure(figsize=(10, 8))
+sns.heatmap(corr_matrix, annot=True, fmt='.2f', cmap='coolwarm', 
+            square=True, cbar_kws={"shrink": .8})
+plt.title('Correlation Matrix: ESG Metrics vs Financial Performance')
+plt.tight_layout()
+plt.savefig('esg_correlation_matrix.png', dpi=300, bbox_inches='tight')
+plt.close()
+print("✓ Correlation matrix saved: esg_correlation_matrix.png")
+
+# Extract ESG-Profit Margin correlation
+esg_profit_corr = corr_matrix.loc['ESG_Overall', 'ProfitMargin']
+print(f"\nESG Overall vs Profit Margin correlation coefficient: {esg_profit_corr:.4f}")
+
+# Hypothesis test
+corr_p_value = stats.pearsonr(df_clean['ESG_Overall'], df_clean['ProfitMargin'])[1]
+print(f"P-value: {corr_p_value:.6f}")
+if corr_p_value < 0.05:
+    print("Conclusion: Statistically significant correlation at α=0.05")
+else:
+    print("Conclusion: Not statistically significant")
+
+# ESG dimensions correlation
+print("\nCorrelation by ESG dimension:")
+esg_dims = ['ESG_Environmental', 'ESG_Social', 'ESG_Governance']
+for dim in esg_dims:
+    corr = corr_matrix.loc[dim, 'ProfitMargin']
+    print(f"  {dim}: {corr:.4f}")
+
+# ============================================
+# 6. Regression Analysis
+# ============================================
+
+print("\n" + "="*60)
+print("6. REGRESSION ANALYSIS")
+print("="*60)
+
+# 6.1 Simple Linear Regression
+X_simple = df_clean[['ESG_Overall']].values
+y = df_clean['ProfitMargin'].values
+
+model_simple = LinearRegression()
+model_simple.fit(X_simple, y)
+y_pred_simple = model_simple.predict(X_simple)
+
+print("\nSimple Linear Regression Results:")
+print(f"  Coefficient: {model_simple.coef_[0]:.4f}")
+print(f"  Intercept: {model_simple.intercept_:.4f}")
+print(f"  R²: {r2_score(y, y_pred_simple):.4f}")
+print(f"  Interpretation: A 1-point increase in ESG score is associated with a {model_simple.coef_[0]:.4f}% increase in profit margin")
+
+# 6.2 Multiple Linear Regression (controlling for Industry and Region)
+print("\nMultiple Linear Regression (controlling for Industry and Region)...")
+
+# Create dummy variables
+df_reg = pd.get_dummies(df_clean, columns=['Industry', 'Region'], drop_first=True)
+
+# Select features
+feature_cols = ['ESG_Overall'] + [col for col in df_reg.columns if col.startswith('Industry_') or col.startswith('Region_')]
+X_multi = df_reg[feature_cols].values
+y = df_reg['ProfitMargin'].values
+
+model_multi = LinearRegression()
+model_multi.fit(X_multi, y)
+y_pred_multi = model_multi.predict(X_multi)
+
+print(f"  Model R²: {r2_score(y, y_pred_multi):.4f}")
+print(f"  ESG coefficient after controlling for industry and region: {model_multi.coef_[0]:.4f}")
+
+# 6.3 Regression by Industry
+print("\nRegression Results by Industry:")
+industries = df_clean['Industry'].unique()
+industry_results = []
+for industry in industries:
+    df_ind = df_clean[df_clean['Industry'] == industry]
+    if len(df_ind) > 50:
+        X_ind = df_ind[['ESG_Overall']].values
+        y_ind = df_ind['ProfitMargin'].values
+        model_ind = LinearRegression()
+        model_ind.fit(X_ind, y_ind)
+        corr_ind = stats.pearsonr(df_ind['ESG_Overall'], df_ind['ProfitMargin'])[0]
+        industry_results.append({
+            'Industry': industry,
+            'Correlation': corr_ind,
+            'Coefficient': model_ind.coef_[0],
+            'Sample_Size': len(df_ind)
+        })
+
+industry_df = pd.DataFrame(industry_results)
+print(industry_df.to_string(index=False))
+
+# ============================================
+# 7. Advanced Visualizations
+# ============================================
+
+print("\n" + "="*60)
+print("7. ADVANCED VISUALIZATIONS")
+print("="*60)
+
+# 7.1 ESG-Profit Scatter by Industry (Facet Grid)
+plt.figure(figsize=(15, 10))
+industries_top = df_clean['Industry'].value_counts().head(6).index
+g = sns.FacetGrid(df_clean[df_clean['Industry'].isin(industries_top)], 
+                  col='Industry', col_wrap=3, height=4, sharex=True, sharey=True)
+g.map_dataframe(sns.scatterplot, x='ESG_Overall', y='ProfitMargin', alpha=0.5, s=20)
+g.map_dataframe(sns.regplot, x='ESG_Overall', y='ProfitMargin', scatter=False, color='red')
+g.set_axis_labels('ESG Score', 'Profit Margin (%)')
+g.set_titles(col_template='{col_name}')
+g.fig.suptitle('ESG-Profit Relationship by Industry', y=1.02)
+plt.tight_layout()
+plt.savefig('esg_by_industry_facet.png', dpi=300, bbox_inches='tight')
+plt.close()
+print("✓ Industry facet chart saved: esg_by_industry_facet.png")
+
+# 7.2 ESG-Profit Scatter by Region
+plt.figure(figsize=(15, 8))
+regions = df_clean['Region'].unique()
+colors = plt.cm.tab10(range(len(regions)))
+for i, region in enumerate(regions):
+    df_region = df_clean[df_clean['Region'] == region]
+    plt.scatter(df_region['ESG_Overall'], df_region['ProfitMargin'], 
+                alpha=0.3, s=10, label=region, color=colors[i])
+
+# Add overall regression line
+z = np.polyfit(df_clean['ESG_Overall'], df_clean['ProfitMargin'], 1)
+p = np.poly1d(z)
+plt.plot(df_clean['ESG_Overall'].sort_values(), 
+         p(df_clean['ESG_Overall'].sort_values()), 
+         "k--", alpha=0.8, label='Overall Trend')
+
+plt.xlabel('ESG Score')
+plt.ylabel('Profit Margin (%)')
+plt.title('ESG-Profit Relationship by Region')
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.tight_layout()
+plt.savefig('esg_by_region.png', dpi=300, bbox_inches='tight')
+plt.close()
+print("✓ Region chart saved: esg_by_region.png")
+
+# ============================================
+# 8. Analysis Report
+# ============================================
+
+print("\n" + "="*60)
+print("8. ANALYSIS SUMMARY REPORT")
+print("="*60)
+
+report = f"""
+===============================================================================
+           ESG AND FINANCIAL PERFORMANCE CORRELATION ANALYSIS REPORT
+===============================================================================
+
+Report generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+Data source: Kaggle ESG & Financial Performance Dataset
+Analysis period: {df_clean['Year'].min()} - {df_clean['Year'].max()}
+Total observations: {len(df_clean):,}
+Number of companies: {df_clean['CompanyID'].nunique():,}
+Number of industries: {df_clean['Industry'].nunique()}
+Number of regions: {df_clean['Region'].nunique()}
+
+【KEY FINDINGS】
+------------------------------------------------------------------------------
+1. Overall Correlation:
+   - ESG Overall vs Profit Margin correlation: {esg_profit_corr:.4f}
+   - P-value: {corr_p_value:.6f}
+   - Conclusion: {'Statistically significant positive correlation' if corr_p_value < 0.05 and esg_profit_corr > 0 else 'Not statistically significant'}
+
+2. Correlation by ESG Dimension:
+   - Environmental: {corr_matrix.loc['ESG_Environmental', 'ProfitMargin']:.4f}
+   - Social: {corr_matrix.loc['ESG_Social', 'ProfitMargin']:.4f}
+   - Governance: {corr_matrix.loc['ESG_Governance', 'ProfitMargin']:.4f}
+
+3. Regression Results:
+   - Simple Linear Regression R²: {r2_score(y, y_pred_simple):.4f}
+   - Multiple Regression R² (controlling for industry/region): {r2_score(y, y_pred_multi):.4f}
+   - ESG coefficient: {model_simple.coef_[0]:.4f} (profit margin % per 1-point ESG increase)
+
+【INDUSTRY VARIATIONS】
+------------------------------------------------------------------------------
+"""
+for _, row in industry_df.iterrows():
+    report += f"- {row['Industry']}: Correlation {row['Correlation']:.4f} (n={row['Sample_Size']})\n"
+
+report += f"""
+【CONCLUSIONS & RECOMMENDATIONS】
+------------------------------------------------------------------------------
+1. The analysis {'supports' if corr_p_value < 0.05 else 'does not provide strong evidence for'} the hypothesis that higher ESG scores are associated with better financial performance.
+
+2. Among the three ESG pillars, {'Governance' if corr_matrix.loc['ESG_Governance', 'ProfitMargin'] == max(corr_matrix.loc[esg_dims, 'ProfitMargin']) else 'Environmental' if corr_matrix.loc['ESG_Environmental', 'ProfitMargin'] == max(corr_matrix.loc[esg_dims, 'ProfitMargin']) else 'Social'} shows the strongest correlation with profitability.
+
+3. Industry-specific analysis reveals variations in the ESG-profit relationship, suggesting that sustainability strategies should be tailored to industry contexts.
+
+4. Recommendation: This analysis should be updated annually to track changes in the ESG-profit relationship over time.
+
+===============================================================================
+"""
+
+print(report)
+
+# Save results
+df_clean.to_csv('esg_financial_analysis_full.csv', index=False, encoding='utf-8-sig')
+industry_df.to_csv('esg_industry_results.csv', index=False, encoding='utf-8-sig')
+
+print("\nResults saved to:")
+print("  - esg_financial_analysis_full.csv (complete dataset with analysis)")
+print("  - esg_industry_results.csv (industry-level results)")
+print("  - esg_exploratory_analysis.png (exploratory charts)")
+print("  - esg_correlation_matrix.png (correlation heatmap)")
+print("  - esg_by_industry_facet.png (industry scatter plots)")
+print("  - esg_by_region.png (region scatter plots)")
+
+print("\n" + "="*60)
+print("ESG ANALYSIS COMPLETE!")
+print("="*60)
