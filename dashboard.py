@@ -3,24 +3,33 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import matplotlib.pyplot as plt
 from datetime import datetime, date
+import os
 
 # ==================== Page Configuration ====================
 st.set_page_config(page_title="Integrated Business Dashboard", layout="wide")
 st.title("📊 Integrated Executive Dashboard")
 st.markdown("Consolidated view of Accounts Payable, ESG & Financial, and SalesMind analytics.")
 
+# ==================== Helper Functions ====================
+def check_file_exists(file_path):
+    """Check if file exists and return True/False"""
+    return os.path.exists(file_path)
+
 # ==================== Module 1: Accounts Payable Dashboard ====================
 def show_ap_dashboard():
     st.header("📊 Accounts Payable Dashboard")
     st.markdown("Interactive analysis of vendor invoices, payment status, and anomalies.")
 
+    file_path = "accounts_payable_with_anomalies.csv"
+    if not check_file_exists(file_path):
+        st.error(f"❌ File not found: `{file_path}`. Please upload the file to the current directory.")
+        st.stop()
+
     # Load data
     @st.cache_data
     def load_ap_data():
-        df = pd.read_csv("accounts_payable_with_anomalies.csv", parse_dates=["InvoiceDate", "DueDate", "PaidDate"])
+        df = pd.read_csv(file_path, parse_dates=["InvoiceDate", "DueDate", "PaidDate"])
         df["PaidDate"] = pd.to_datetime(df["PaidDate"], errors="coerce")
         today = date.today()
         df["DaysOverdue"] = (pd.to_datetime(today) - df["DueDate"]).dt.days
@@ -125,10 +134,15 @@ def show_esg_dashboard():
     st.header("🌍 ESG & Financial Performance Dashboard")
     st.markdown("Analyse the relationship between **ESG scores** and **financial metrics** across industries and regions.")
 
+    file_path = "esg_analysis_full_data.csv"
+    if not check_file_exists(file_path):
+        st.error(f"❌ File not found: `{file_path}`. Please upload the file to the current directory.")
+        st.stop()
+
     # Load data
     @st.cache_data
     def load_esg_data():
-        df = pd.read_csv("esg_analysis_full_data.csv")
+        df = pd.read_csv(file_path)
         numeric_cols = ['Revenue', 'ProfitMargin', 'MarketCap', 'GrowthRate',
                         'ESG_Overall', 'ESG_Environmental', 'ESG_Social', 'ESG_Governance',
                         'CarbonEmissions', 'WaterUsage', 'EnergyConsumption']
@@ -137,6 +151,8 @@ def show_esg_dashboard():
         return df
 
     df = load_esg_data()
+    if df.empty:
+        st.stop()
 
     # Filters
     st.subheader("🔍 Filters")
@@ -204,7 +220,6 @@ def show_esg_dashboard():
         corr_cols = ['ESG_Overall', 'ProfitMargin', 'GrowthRate', 'Revenue', 'MarketCap',
                      'CarbonEmissions', 'WaterUsage', 'EnergyConsumption']
         corr_matrix = filtered_df[corr_cols].corr()
-        # Use Plotly heatmap instead of seaborn
         fig_corr = px.imshow(corr_matrix, text_auto=True, aspect="auto", color_continuous_scale='RdBu_r',
                              title="Correlation between ESG and Financial Indicators")
         st.plotly_chart(fig_corr, use_container_width=True)
@@ -235,6 +250,24 @@ def show_esg_dashboard():
 def show_salesmind_dashboard():
     st.header("📈 SalesMind Executive Dashboard")
     st.markdown("Sales performance, store & inventory, marketing insights, external factors, and anomaly detection.")
+
+    # List of required files
+    required_files = [
+        'SalesMind_Sales_Transactions_2026.csv',
+        'SalesMind_Stores_Master_2026.csv',
+        'SalesMind_Products_Master_2026.csv',
+        'SalesMind_Calendar_Dimension_2026.csv',
+        'SalesMind_Customer_Segments_2026.csv',
+        'SalesMind_External_Factors_2026.csv',
+        'SalesMind_Inventory_Supply_2026.csv',
+        'SalesMind_Marketing_Campaigns_2026.csv',
+        'suspicious_transactions.csv'
+    ]
+
+    missing = [f for f in required_files if not check_file_exists(f)]
+    if missing:
+        st.error(f"❌ Missing files: {', '.join(missing)}. Please upload all required files.")
+        st.stop()
 
     # Load data
     @st.cache_data
