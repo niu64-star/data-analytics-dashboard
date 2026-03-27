@@ -5,7 +5,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
-import seaborn as sns
 from datetime import datetime, date
 
 # ==================== Page Configuration ====================
@@ -31,7 +30,7 @@ def show_ap_dashboard():
 
     df = load_ap_data()
 
-    # Filters (moved from sidebar to main area)
+    # Filters
     st.subheader("🔍 Filters")
     col_f1, col_f2, col_f3, col_f4 = st.columns(4)
     with col_f1:
@@ -139,7 +138,7 @@ def show_esg_dashboard():
 
     df = load_esg_data()
 
-    # Filters (moved from sidebar)
+    # Filters
     st.subheader("🔍 Filters")
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
@@ -205,10 +204,10 @@ def show_esg_dashboard():
         corr_cols = ['ESG_Overall', 'ProfitMargin', 'GrowthRate', 'Revenue', 'MarketCap',
                      'CarbonEmissions', 'WaterUsage', 'EnergyConsumption']
         corr_matrix = filtered_df[corr_cols].corr()
-        fig, ax = plt.subplots(figsize=(10, 8))
-        sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt='.2f', ax=ax)
-        ax.set_title("Correlation between ESG and Financial Indicators")
-        st.pyplot(fig)
+        # Use Plotly heatmap instead of seaborn
+        fig_corr = px.imshow(corr_matrix, text_auto=True, aspect="auto", color_continuous_scale='RdBu_r',
+                             title="Correlation between ESG and Financial Indicators")
+        st.plotly_chart(fig_corr, use_container_width=True)
 
         st.subheader("ESG Score vs. Profit Margin by Industry")
         fig5 = px.scatter(filtered_df, x='ESG_Overall', y='ProfitMargin', color='Industry', facet_col='Industry',
@@ -275,7 +274,7 @@ def show_salesmind_dashboard():
 
     df, stores, products, calendar, customers, external, inventory, campaigns, suspicious = load_salesmind_data()
 
-    # Filters (moved from sidebar)
+    # Filters
     st.subheader("🔍 Filters")
     min_date = df['date'].min().date()
     max_date = df['date'].max().date()
@@ -313,7 +312,6 @@ def show_salesmind_dashboard():
     avg_discount_rate = (filtered_df['total_discount_given'].sum() / filtered_df['total_sales_revenue'].sum()) * 100 if filtered_df['total_sales_revenue'].sum() != 0 else 0
     avg_return_rate = filtered_df['return_rate'].mean() * 100
     gross_profit_margin = (filtered_df['gross_profit'].sum() / filtered_df['net_sales'].sum()) * 100 if filtered_df['net_sales'].sum() != 0 else 0
-    total_inventory = inventory[inventory['store_id'].isin(filtered_df['store_id'].unique())]['inventory_level'].sum()
     stockout_count = inventory[(inventory['stockout_flag'] == 1) & (inventory['store_id'].isin(filtered_df['store_id'].unique()))]['inventory_id'].count()
 
     kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
